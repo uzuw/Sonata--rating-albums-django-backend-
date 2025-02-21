@@ -10,8 +10,25 @@ class AlbumViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         external_albums = fetch_all_albums()
-        local_albums = AlbumSerializer(self.get_queryset(), many=True).data
-        return Response({"local_albums": local_albums, "external_albums": external_albums})
+
+        # Ensure it's a list of albums
+        albums_data = [
+            {
+                "name": album.get("name"),
+                "album_type": album.get("album_type"),
+                "artists": [artist.get("name") for artist in album.get("artists", [])],
+                "release_date": album.get("release_date"),
+                "total_tracks": album.get("total_tracks"),
+                "href": album.get("href"),
+                "url": album.get("external_urls", {}).get("spotify"),
+            }
+            for album in external_albums
+        ]
+
+        return Response({"external_albums": albums_data})
+ 
+
+
 
 class TrackViewSet(viewsets.ModelViewSet):
     queryset = Track.objects.all()
