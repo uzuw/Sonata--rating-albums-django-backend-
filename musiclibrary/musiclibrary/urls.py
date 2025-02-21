@@ -24,6 +24,7 @@ from django.views.static import serve
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('',include('library.urls')),
+    path('external/', include('external_data.urls')),
     # Corrected media URL pattern
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
