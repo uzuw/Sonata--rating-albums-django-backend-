@@ -17,7 +17,7 @@ class TrackSerializer(serializers.ModelSerializer):
 class RatingSerializer(serializers.ModelSerializer):
      class Meta:
           model=Rating
-          field="__all_"
+          field="__all__"
     
 
 
