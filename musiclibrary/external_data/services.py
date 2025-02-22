@@ -114,3 +114,40 @@ def find_album_by_name(album_name):
         
 
 
+import requests
+from django.core.cache import cache
+
+SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1/albums"
+
+def fetch_track(album_id, track_number=None, track_id=None, track_name=None):
+    """
+    Fetch track details for a specific track in an album based on track number, ID, or name.
+    """
+    # Get or refresh access token
+    access_token = cache.get("spotify_access_token") or get_spotify_access_token()
+    if not access_token:
+        return None
+
+    # Fetch all tracks for the album
+    url = f"{SPOTIFY_API_BASE_URL}/{album_id}/tracks"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        tracks = response.json().get("items", [])
+        # Find the track based on the provided criteria
+        for track in tracks:
+            if track_number and track.get("track_number") == track_number:
+                return track
+            if track_id and track.get("id") == track_id:
+                return track
+            if track_name and track.get("name").lower() == track_name.lower():
+                return track
+        return None  # Track not found
+    elif response.status_code == 401:  # Unauthorized (token might be expired)
+        # Clear the cached token and retry
+        cache.delete("spotify_access_token")
+        return fetch_track(album_id, track_number, track_id, track_name)
+    else:
+        # Handle other errors
+        return None
