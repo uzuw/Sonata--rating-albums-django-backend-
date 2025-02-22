@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.core.cache import cache
 import re
-from external_data.services import fetch_all_albums, fetch_tracks_for_album, find_album_by_name
+from external_data.services import fetch_all_albums,fetch_album_by_id, fetch_tracks_for_album, find_album_by_name
 from .models import Rating
 from .serializers import RatingSerializer
 
@@ -28,10 +28,10 @@ class AlbumViewSet(viewsets.ViewSet):
             {
                 "id": album.get("id"),
                 "name": album.get("name"),
-                "artists": [artist.get("name") for artist in album.get("artists", [])],
-                "release_date": album.get("release_date"),
-                "url": album.get("external_urls", {}).get("spotify"),
-                "album_image": album.get("images", [{}])[0].get("url"),
+                # "artists": [artist.get("name") for artist in album.get("artists", [])],
+                # "release_date": album.get("release_date"),
+                # "url": album.get("external_urls", {}).get("spotify"),
+                # "album_image": album.get("images", [{}])[0].get("url"),
             }
             for album in external_albums
         ]
@@ -39,6 +39,36 @@ class AlbumViewSet(viewsets.ViewSet):
         # Cache albums for 15 minutes
         cache.set("spotify_albums", albums_data, timeout=60 * 15)
         return Response({"albums": albums_data})
+    
+
+    def retrieve(self, request, pk=None):
+        """fetching the details of the each album"""
+
+        #validating the album ID if not then converting the name into the id
+
+        if not re.match(r"^[a-zA-Z0-9]{22}$",pk):
+            pk=find_album_by_name(pk)
+            if not pk:
+                return Response({"error":"Album not found"}, status=404)
+
+        album=fetch_album_by_id(pk)
+        if not album:
+            return Response({"error": "Failed to fetch album details"}, status=500)
+
+        album_data = {
+            "id": album.get("id"),
+            "name": album.get("name"),
+            "artists": [artist.get("name") for artist in album.get("artists", [])],
+            "release_date": album.get("release_date"),
+            "url": album.get("external_urls", {}).get("spotify"),
+            "album_image": album.get("images", [{}])[0].get("url"),
+            "total_tracks": album.get("total_tracks"),
+        }
+
+        return Response({"album":album_data})
+
+
+
 
     @action(detail=True, methods=["get"], url_path="tracks")
     def get_album_tracks(self, request, pk=None):
@@ -65,10 +95,16 @@ class AlbumViewSet(viewsets.ViewSet):
         ]
 
         return Response({"album_id": pk, "tracks": track_data})
+    
+    
 
-class RatingViewSet(viewsets.ModelViewSet):
-    """
-    Simplified ViewSet for handling ratings.
-    """
-    queryset = Rating.objects.all()
-    serializer_class = RatingSerializer
+
+
+
+# class RatingViewSet(viewsets.ModelViewSet):
+#     """
+#     Simplified ViewSet for handling ratings.
+#     """
+#     queryset = Rating.objects.all()
+#     serializer_class = RatingSerializer
+

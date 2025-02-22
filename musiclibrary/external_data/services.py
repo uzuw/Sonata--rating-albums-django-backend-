@@ -60,6 +60,24 @@ def fetch_all_albums():
     return None
 
 
+def fetch_album_by_id(album_id):
+    """
+    Fetch details of a specific album by its Spotify ID.
+    """
+    access_token = cache.get("spotify_access_token") or get_spotify_access_token()
+    if not access_token:
+        return None
+
+    url = f"{SPOTIFY_API_BASE_URL}/{album_id}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json()
+
+    return None
+
+
 def fetch_tracks_for_album(album_id):
     """
     Fetch tracks for a specific album using its Spotify Album ID.
@@ -93,3 +111,6 @@ def find_album_by_name(album_name):
         albums=response.json().get("albums",{}).get("items",[])
         if albums:
             return albums[0]['id'] #returning the id using the name of the album
+        
+
+
