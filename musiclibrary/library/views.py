@@ -4,8 +4,12 @@ from rest_framework.response import Response
 from django.core.cache import cache
 import re
 from external_data.services import fetch_all_albums,fetch_album_by_id, fetch_tracks_for_album, fetch_track, find_album_by_name
-from .models import Rating
-from .serializers import RatingSerializer
+
+
+
+
+
+
 
 class AlbumViewSet(viewsets.ViewSet):
     """
@@ -134,10 +138,5 @@ class AlbumViewSet(viewsets.ViewSet):
         }
 
         return Response({"track": track_data}, status=200)
-# class RatingViewSet(viewsets.ModelViewSet):
-#     """
-#     Simplified ViewSet for handling ratings.
-#     """
-#     queryset = Rating.objects.all()
-#     serializer_class = RatingSerializer
+
 

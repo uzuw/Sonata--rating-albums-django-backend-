@@ -2,22 +2,12 @@
 
 from rest_framework import serializers
 
-from .models import Album, Track, Rating
+from .models import TrackRating
 
-class AlbumSerializer(serializers.ModelSerializer):
+class TrackRatingSerialilzer(serializers.ModelSerializer):
     class Meta:
-        model=Album
-        fields='__all__'
+        model= TrackRating
+        fields= ['id','user','albumn_id','track_id','score','comment']
+        red_only_fields=['id','user'] #prevents the user from manually setting the user and id 
 
-class TrackSerializer(serializers.ModelSerializer):
-      class Meta:
-           model=Track
-           field="__all__"
         
-class RatingSerializer(serializers.ModelSerializer):
-     class Meta:
-          model=Rating
-          field="__all__"
-    
-
-
