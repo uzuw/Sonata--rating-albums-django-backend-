@@ -4,7 +4,12 @@ from rest_framework.response import Response
 from django.core.cache import cache
 import re
 from external_data.services import fetch_all_albums,fetch_album_by_id, fetch_tracks_for_album, fetch_track, find_album_by_name
+from rest_framework.permissions import IsAuthenticated
 
+#importing models and serializers
+
+from .models import TrackRating
+from .serializers import TrackRatingSerialilzer
 
 
 
@@ -140,3 +145,23 @@ class AlbumViewSet(viewsets.ViewSet):
         return Response({"track": track_data}, status=200)
 
 
+
+class TrackRatingViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet to handle the track rating
+    """
+
+    queryset=TrackRating.objects.all()
+    serializer_class=TrackRatingSerialilzer
+    permission_classes=[IsAuthenticated] #rest framework to only accept the view the class to the authenticated user
+
+    def create(self, request):
+        """
+        Create a new track rating
+        """
+        
+        user=request.user #get authenticated user
+        data=request.data.copy()
+
+
+        

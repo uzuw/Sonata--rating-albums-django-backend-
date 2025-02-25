@@ -47,7 +47,16 @@ INSTALLED_APPS = [
     'rest_framework',
     'library',
     'external_data',
+    'rest_framework_simplejwt',
+
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
 
 # for image 
 import os
