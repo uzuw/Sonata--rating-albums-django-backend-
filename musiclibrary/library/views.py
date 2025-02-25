@@ -3,17 +3,23 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.core.cache import cache
 import re
-from external_data.services import fetch_all_albums,fetch_album_by_id, fetch_tracks_for_album, fetch_track, find_album_by_name
+from external_data.services import (
+    fetch_all_albums,
+    fetch_album_by_id,
+    fetch_tracks_for_album,
+    fetch_track,
+    find_album_by_name,
+)
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Avg
 
-#importing models and serializers
-
+# Importing models and serializers
 from .models import TrackRating
-from .serializers import TrackRatingSerialilzer
+from .serializers import TrackRatingSerializer, UserSerializer
 
-
-
-
+#user
+from rest_framework import generics
+from django.contrib.auth.models import User
 
 
 class AlbumViewSet(viewsets.ViewSet):
@@ -22,45 +28,31 @@ class AlbumViewSet(viewsets.ViewSet):
     """
 
     def list(self, request):
-        # Check cache first
         cached_albums = cache.get("spotify_albums")
         if cached_albums:
             return Response({"albums": cached_albums})
 
-        # Fetch albums from external API
         external_albums = fetch_all_albums()
         if not external_albums:
             return Response({"error": "Failed to fetch albums"}, status=500)
 
-        # Format album data
         albums_data = [
-            {
-                "id": album.get("id"),
-                "name": album.get("name"),
-                # "artists": [artist.get("name") for artist in album.get("artists", [])],
-                # "release_date": album.get("release_date"),
-                # "url": album.get("external_urls", {}).get("spotify"),
-                # "album_image": album.get("images", [{}])[0].get("url"),
-            }
+            {"id": album.get("id"), "name": album.get("name")}
             for album in external_albums
         ]
 
-        # Cache albums for 15 minutes
         cache.set("spotify_albums", albums_data, timeout=60 * 15)
         return Response({"albums": albums_data})
-    
 
     def retrieve(self, request, pk=None):
-        """fetching the details of the each album"""
+        """Fetching the details of each album"""
 
-        #validating the album ID if not then converting the name into the id
-
-        if not re.match(r"^[a-zA-Z0-9]{22}$",pk):
-            pk=find_album_by_name(pk)
+        if not re.match(r"^[a-zA-Z0-9]{22}$", pk):
+            pk = find_album_by_name(pk)
             if not pk:
-                return Response({"error":"Album not found"}, status=404)
+                return Response({"error": "Album not found"}, status=404)
 
-        album=fetch_album_by_id(pk)
+        album = fetch_album_by_id(pk)
         if not album:
             return Response({"error": "Failed to fetch album details"}, status=500)
 
@@ -74,25 +66,19 @@ class AlbumViewSet(viewsets.ViewSet):
             "total_tracks": album.get("total_tracks"),
         }
 
-        return Response({"album":album_data})
-
-
-
+        return Response({"album": album_data})
 
     @action(detail=True, methods=["get"], url_path="tracks")
     def get_album_tracks(self, request, pk=None):
-        # Validate album ID or find by name
         if not re.match(r"^[a-zA-Z0-9]{22}$", pk):
             pk = find_album_by_name(pk)
             if not pk:
                 return Response({"error": "Album not found"}, status=404)
 
-        # Fetch tracks for the album
         tracks = fetch_tracks_for_album(pk)
         if not tracks:
             return Response({"error": "Could not fetch tracks"}, status=500)
 
-        # Format track data
         track_data = [
             {
                 "name": track.get("name"),
@@ -104,35 +90,27 @@ class AlbumViewSet(viewsets.ViewSet):
         ]
 
         return Response({"album_id": pk, "tracks": track_data})
-    
 
-    
-    @action(detail=True, methods=['GET'], url_path='tracks/(?P<track_identifier>[^/.]+)')
+    @action(detail=True, methods=["get"], url_path="tracks/(?P<track_identifier>[^/.]+)")
     def track_details(self, request, pk=None, track_identifier=None):
-        """
-        Fetch track details for a specific track in an album based on track number, ID, or name.
-        """
-        # Step 1: Validate album ID or find by name
-        if not re.match(r"^[a-zA-Z0-9]{22}$", pk):  # Check if pk is a valid Spotify album ID
-            pk = find_album_by_name(pk)  # If not, find the album by name
+        """Fetch track details for a specific track in an album"""
+        if not re.match(r"^[a-zA-Z0-9]{22}$", pk):
+            pk = find_album_by_name(pk)
             if not pk:
                 return Response({"error": "Album not found"}, status=404)
 
-        # Step 2: Determine if the track_identifier is a track number, ID, or name
         try:
-            track_number = int(track_identifier)  # Try to convert to integer (track number)
+            track_number = int(track_identifier)
             track = fetch_track(pk, track_number=track_number)
         except ValueError:
-            if len(track_identifier) == 22:  # Check if it's a Spotify track ID (22 characters)
+            if len(track_identifier) == 22:
                 track = fetch_track(pk, track_id=track_identifier)
             else:
-                track = fetch_track(pk, track_name=track_identifier)  # Treat as track name
+                track = fetch_track(pk, track_name=track_identifier)
 
-        # Step 3: Handle track not found
         if not track:
             return Response({"error": f"Track '{track_identifier}' not found in the album"}, status=404)
 
-        # Step 4: Prepare and return track data
         track_data = {
             "id": track.get("id"),
             "name": track.get("name"),
@@ -145,23 +123,51 @@ class AlbumViewSet(viewsets.ViewSet):
         return Response({"track": track_data}, status=200)
 
 
-
 class TrackRatingViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet to handle the track rating
-    """
+    """ViewSet to handle the track rating"""
 
-    queryset=TrackRating.objects.all()
-    serializer_class=TrackRatingSerialilzer
-    permission_classes=[IsAuthenticated] #rest framework to only accept the view the class to the authenticated user
+    queryset = TrackRating.objects.all()
+    serializer_class = TrackRatingSerializer
+    permission_classes = [IsAuthenticated]  # Allow only authenticated users
 
     def create(self, request):
-        """
-        Create a new track rating
-        """
-        
-        user=request.user #get authenticated user
-        data=request.data.copy()
+        """Create a new track rating"""
+
+        user = request.user
+        data = request.data.copy()
+        data["user"] = user.id
+
+        serializer = self.get_serializer(data=data)
+        if serializer.is_valid():
+            serializer.save(user=user)
+            return Response(serializer.data, status=201)
+
+        return Response(serializer.errors, status=400)
+
+    @action(detail=False, methods=["get"], url_path="album/(?P<album_id>[a-zA-Z0-9]{22})")
+    def get_album_rating(self, request, album_id=None):
+        """Calculate the average rating of the album based on track ratings"""
+
+        avg_rating = TrackRating.objects.filter(album_id=album_id).aggregate(avg=Avg("score"))["avg"]
+
+        if avg_rating is None:
+            return Response({"album_id": album_id, "average_rating": "No ratings yet"})
+
+        return Response({"album_id": album_id, "average_rating": round(avg_rating, 2)})
 
 
-        
+#user registration view
+class RegisterUserView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])  # Only admin users can access this
+def registered_users(request):
+    users = User.objects.all()
+    serializer = UserSerializer(users, many=True)
+    return Response({"registered_users": serializer.data})
