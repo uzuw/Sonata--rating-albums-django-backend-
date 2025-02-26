@@ -20,6 +20,7 @@ from .serializers import TrackRatingSerializer, UserSerializer
 #user
 from rest_framework import generics
 from django.contrib.auth.models import User
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 class AlbumViewSet(viewsets.ViewSet):
@@ -124,11 +125,12 @@ class AlbumViewSet(viewsets.ViewSet):
 
 
 class TrackRatingViewSet(viewsets.ModelViewSet):
-    """ViewSet to handle the track rating"""
+    """ViewSet to handle track ratings"""
 
     queryset = TrackRating.objects.all()
     serializer_class = TrackRatingSerializer
-    permission_classes = [IsAuthenticated]  # Allow only authenticated users
+    authentication_classes = [JWTAuthentication]  # Use JWT authentication
+    permission_classes = [IsAuthenticated]  # Require authentication
 
     def create(self, request):
         """Create a new track rating"""
@@ -140,9 +142,9 @@ class TrackRatingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=data)
         if serializer.is_valid():
             serializer.save(user=user)
-            return Response(serializer.data, status=201)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        return Response(serializer.errors, status=400)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=["get"], url_path="album/(?P<album_id>[a-zA-Z0-9]{22})")
     def get_album_rating(self, request, album_id=None):
@@ -165,9 +167,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
 
 
-@api_view(['GET'])
-@permission_classes([IsAdminUser])  # Only admin users can access this
+
+@api_view(['GET']) # Only admin users can access this
 def registered_users(request):
+    user=User.objects.get(username="uzuw")
     users = User.objects.all()
     serializer = UserSerializer(users, many=True)
     return Response({"registered_users": serializer.data})

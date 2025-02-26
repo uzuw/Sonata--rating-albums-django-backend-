@@ -57,6 +57,14 @@ REST_FRAMEWORK = {
     ),
 }
 
+from datetime import timedelta
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),  # Short expiration time
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),  # Long expiration time
+    "ROTATE_REFRESH_TOKENS": True,  # New refresh token on use
+    "BLACKLIST_AFTER_ROTATION": True,  # Old refresh tokens become invalid
+}
+
 
 # for image 
 import os
